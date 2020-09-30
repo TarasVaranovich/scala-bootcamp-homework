@@ -1,1 +1,1 @@
-["sbt.Task[scala.collection.Seq[scala.Tuple2[java.nio.file.Path, sbt.nio.FileStamp]]]",{"hashes":[["/Users/Taras/Desktop/PROJECTS/evolution-test/scala-bootcamp-homework/scala-bootcamp-homework/build.sbt","bf66fa79f60a29db3bc1ed554d1615b2c33ccdca"]],"lastModifiedTimes":[]}]
+["sbt.Task[scala.collection.Seq[scala.Tuple2[java.nio.file.Path, sbt.nio.FileStamp]]]",{"hashes":[["/Users/Taras/Desktop/PROJECTS/evolution-test/scala-bootcamp-homework/scala-bootcamp-homework/build.sbt","1f22ce153f24ac9562f434742639119f585cee7c"]],"lastModifiedTimes":[]}]
