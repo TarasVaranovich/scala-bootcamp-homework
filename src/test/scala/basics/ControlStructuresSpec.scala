@@ -35,12 +35,12 @@ class ControlStructuresSpec extends AnyFlatSpec {
     ControlStructures.parseCommand(" max 4    -3 -17 ") shouldBe Right(Max(List(4, -3, -17)))
   }
 
-  "max 4" should "be 'Left'" in {
-    assert(ControlStructures.parseCommand("max 4").isLeft)
+  "max 4" should "be 'Max' command" in {
+    ControlStructures.parseCommand("max 4") shouldBe Right(Max(List(4)))
   }
 
   "max" should "be 'Left'" in {
-    assert(ControlStructures.parseCommand("max4").isLeft)
+    assert(ControlStructures.parseCommand("max").isLeft)
   }
 
   "command" should "be 'Left'" in {
@@ -59,6 +59,10 @@ class ControlStructuresSpec extends AnyFlatSpec {
     process("sum 5 5 6 8.5") shouldBe "the sum of 5 5 6 8.5 is 24.5"
   }
 
+  " sum 1   " should "be 'the sum of 1 is 1" in {
+    process("sum 1 ") shouldBe "the sum of 1 is 1"
+  }
+
   "average 2 2 3" should "be 'the average of 2 2 3 is 2.333'" in {
     process("average 2 2 3") shouldBe "the average of 2 2 3 is 2.333"
   }
@@ -67,19 +71,31 @@ class ControlStructuresSpec extends AnyFlatSpec {
     process("average 4 3 8.5 4") shouldBe "the average of 4 3 8.5 4 is 4.875"
   }
 
+  "average 4.45" should "be 'the average of 4.45 is 4.45'" in {
+    process("average 4.45") shouldBe "the average of 4.45 is 4.45"
+  }
+
   "min 4 -3 -17" should "return 'the minimum of 4 -3 -17 is -17'" in {
     process("min 4 -3 -17") shouldBe "the minimum of 4 -3 -17 is -17"
+  }
+
+  "min -0.999" should "return 'the minimum of -0.999 is -0.999'" in {
+    process("min -0.999") shouldBe "the minimum of -0.999 is -0.999"
   }
 
   "max 4 -3 -17" should "be 'the maximum of 4 -3 -17 is 4'" in {
     process("max 4 -3 -17") shouldBe "the maximum of 4 -3 -17 is 4"
   }
 
-  "max 4.45005 -3.75 -17.875" should "be 'the maximum of 4.45005 -3.75 -17.875 is 4.45005'" in {
+  "max 4.45005 -3.75 -17.875" should "be 'the maximum of 4 -3 -17 is 4'" in {
     process("max 4.45005 -3.75 -17.875") shouldBe "the maximum of 4.45005 -3.75 -17.875 is 4.45005"
   }
 
-  "max 0" should "start like 'Error: '" in {
-    assert(process("max 0").startsWith("Error: "))
+  "max 1020.220" should "be 'the maximum of 1020.220 is 1020.220'" in {
+    process("max 1020.220") shouldBe "the maximum of 1020.22 is 1020.22"
+  }
+
+  "max0" should "start like 'Error: '" in {
+    assert(process("max0").startsWith("Error: "))
   }
 }

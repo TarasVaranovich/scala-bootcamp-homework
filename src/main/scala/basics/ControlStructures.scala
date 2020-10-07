@@ -5,8 +5,6 @@ import basics.ControlStructures.Command._
 import scala.io.Source
 
 object ControlStructures {
-  private val MIN_OPERANDS: Int = 2
-  private val PARSE_ERROR: String = "Cannot parse '?' command"
 
   sealed trait Formatted {
 
@@ -86,35 +84,27 @@ object ControlStructures {
    * @return "valid/checked" class which implements {@link Command}
    */
   def parseCommand(line: String): Either[ErrorMessage, Command] = {
-    line.split(" ").toList.map(_.trim).filter(_.nonEmpty) match {
-      case "divide" :: operands => operands.head.toDoubleOption
-        .flatMap(dividend =>
-          operands(1).toDoubleOption
-            .withFilter(divisor => (divisor != 0))
-            .map(divisor => Divide(dividend, divisor))
-        ).fold[Either[ErrorMessage, Command]](
-        Left(ErrorMessage(PARSE_ERROR.replace("?", Divide.getClass.getSimpleName))))(Right.apply)
+    val command: String = line.trim.split(" ").head.trim
 
-      case "sum" :: operands => Either.cond(
-        operands.map(_.toDoubleOption).count(_.isDefined) > MIN_OPERANDS,
-        Sum(operands.map(_.toDoubleOption).filter(_.isDefined).map(_.get)),
-        ErrorMessage(PARSE_ERROR.replace("?", Sum.getClass.getSimpleName)))
+    val operands: List[Double] = line.trim.split(" ")
+      .toList
+      .map(_.trim)
+      .map(_.toDoubleOption)
+      .flatMap(_.toList)
 
-      case "average" :: operands => Either.cond(
-        operands.map(_.toDoubleOption).count(_.isDefined) > MIN_OPERANDS,
-        Average(operands.map(_.toDoubleOption).filter(_.isDefined).map(_.get)),
-        ErrorMessage(PARSE_ERROR.replace("?", Average.getClass.getSimpleName)))
+    val buildResult =
+      (when: List[Double] => Boolean, than: List[Double] => Command) =>
+        Either.cond(
+          when(operands),
+          than(operands),
+          ErrorMessage(s"Cannot parse '$command' command."))
 
-      case "min" :: operands => Either.cond(
-        operands.map(_.toDoubleOption).count(_.isDefined) > MIN_OPERANDS,
-        Min(operands.map(_.toDoubleOption).filter(_.isDefined).map(_.get)),
-        ErrorMessage(PARSE_ERROR.replace("?", Min.getClass.getSimpleName)))
-
-      case "max" :: tail => Either.cond(
-        tail.map(_.toDoubleOption).count(_.isDefined) > MIN_OPERANDS,
-        Max(tail.map(_.toDoubleOption).filter(_.isDefined).map(_.get)),
-        ErrorMessage(PARSE_ERROR.replace("?", Max.getClass.getSimpleName)))
-
+    command match {
+      case "divide" => buildResult(ops => (ops.size == 2 && ops.last != 0), ops => Divide(ops.head, ops.last))
+      case "sum" => buildResult(_.nonEmpty, Sum)
+      case "average" => buildResult(_.nonEmpty, Average)
+      case "min" => buildResult(_.nonEmpty, Min)
+      case "max" => buildResult(_.nonEmpty, Max)
       case command => Left(ErrorMessage(s"Unknown command '$command'"))
     }
   }
