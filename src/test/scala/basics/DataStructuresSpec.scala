@@ -23,12 +23,8 @@ class DataStructuresSpec extends AnyFlatSpec {
       List(Set(0.2) -> 2, Set(0.8) -> 5, Set(0.1, 23.4, 34.7) -> 10, Set(54.6, 99.6) -> 237)
   }
 
-  "empty Map" should "result empty List" in {
-    DataStructures.sortConsideringEqualValues(Map.empty) shouldBe List.empty
-  }
-
-  "null" should "result empty List" in {
-    DataStructures.sortConsideringEqualValues(null) shouldBe List.empty
+  "null" should "should throw exception" in {
+    assertThrows[java.lang.NullPointerException](DataStructures.sortConsideringEqualValues(null))
   }
 
   "Map(NotImplemented(11) -> 2, NotImplemented(12) -> 2, NotImplemented(13) -> 3, NotImplemented(14) -> 3))" should
@@ -37,5 +33,13 @@ class DataStructuresSpec extends AnyFlatSpec {
     DataStructures.sortConsideringEqualValues(
       Map(NotImplemented(11) -> 2, NotImplemented(12) -> 2, NotImplemented(13) -> 3, NotImplemented(14) -> 3)) shouldBe
       List(Set(NotImplemented(11), NotImplemented(12)) -> 2, Set(NotImplemented(13), NotImplemented(14)) -> 3)
+  }
+
+  "list of maps treatment with case of empty map" should "be executed without exception" in {
+    List(
+      Map(23.4 -> 10, 54.6 -> 237, 0.8 -> 5, 99.6 -> 237, 0.1 -> 10, 0.2 -> 2, 34.7 -> 10),
+      Map("a" -> 1, "b" -> 2, "c" -> 4, "d" -> 1, "e" -> 0, "f" -> 2, "g" -> 2),
+      Map.empty
+    ).foreach(map => DataStructures.sortConsideringEqualValues(map))
   }
 }
