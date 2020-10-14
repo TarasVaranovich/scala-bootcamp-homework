@@ -15,10 +15,11 @@ sealed trait PokerCombination extends Ordered[PokerCombination] {
 }
 
 object PokerCombination {
-  sealed trait PokerCombinationBuilder {
-    protected def create(board: Board, hand: Hand): Option[PokerCombination]
-    protected def defined(board: Board, hand: Hand): Boolean
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]]
+
+  private def makeCombination(defined: (Board, Hand) => Boolean,
+                              create: (Board, Hand) => Option[PokerCombination]):
+  PartialFunction[(Board, Hand), Option[PokerCombination]] = {
+    case (board, hand) if defined.apply(board, hand) => create.apply(board, hand)
   }
 
   final case class HighCard private(card: Card, remains: Set[Card])
@@ -27,12 +28,10 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
   }
-  object HighCard extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[HighCard] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object HighCard {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 
   final case class Pair private(first: Card, second: Card, remains: Set[Card])
@@ -41,12 +40,10 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
   }
-  object Pair extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[PokerCombination] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object Pair {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 
   final case class TwoPairs private(firstPair: Pair, secondPair: Pair, remain: Card)
@@ -55,12 +52,10 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
   }
-  object TwoPairs extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[PokerCombination] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object TwoPairs {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 
   final case class ThreeOfKind private(first: Card, second: Card, third: Card, remains: Set[Card])
@@ -69,12 +64,10 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
   }
-  object ThreeOfKind extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[PokerCombination] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object ThreeOfKind {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 
   final case class Straight private(straight: Set[Card]) extends PokerCombination {
@@ -82,12 +75,10 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
   }
-  object Straight extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[PokerCombination] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object Straight {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 
   final case class Flush private(flush: Set[Card]) extends PokerCombination {
@@ -95,12 +86,10 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
   }
-  object Flush extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[PokerCombination] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object Flush {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 
   final case class FullHouse private(pair: Pair, threeOfKind: ThreeOfKind) extends PokerCombination {
@@ -108,12 +97,10 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
   }
-  object FullHouse extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[PokerCombination] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object FullHouse {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 
   final case class FourOfKind private(first: Card, second: Card, third: Card, fourth: Card, remain: Card)
@@ -122,12 +109,10 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that).
       getOrElse(0)
   }
-  object FourOfKind extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[PokerCombination] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object FourOfKind {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 
   final case class StraightFlush private(straightFlush: Set[Card]) extends PokerCombination {
@@ -135,11 +120,9 @@ object PokerCombination {
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
   }
-  object StraightFlush extends PokerCombinationBuilder {
-    override protected def create(board: Board, hand: Hand): Option[PokerCombination] = Option.empty
-    override protected def defined(board: Board, hand: Hand): Boolean = true
-    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = {
-      case (board, hand) if defined(board, hand) => create(board, hand)
-    }
+  object StraightFlush {
+    private val create = (_: Board, _: Hand) => Option.empty
+    private val defined = (_: Board, _: Hand) => true
+    def make: PartialFunction[(Board, Hand), Option[PokerCombination]] = makeCombination(defined, create)
   }
 }
