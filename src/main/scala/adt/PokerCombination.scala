@@ -21,7 +21,7 @@ object PokerCombination {
     def make: PartialFunction[(Board, Hand), Option[PokerCombination]]
   }
 
-  final case class HighCard private(card: Card, remains: collection.immutable.Set[Card])
+  final case class HighCard private(card: Card, remains: Set[Card])
     extends PokerCombination {
     override def weight: Byte = 1
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
@@ -35,7 +35,7 @@ object PokerCombination {
     }
   }
 
-  final case class Pair private(first: Card, second: Card, remains: collection.immutable.Set[Card])
+  final case class Pair private(first: Card, second: Card, remains: Set[Card])
     extends PokerCombination {
     override def weight: Byte = 2
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
@@ -63,7 +63,7 @@ object PokerCombination {
     }
   }
 
-  final case class ThreeOfKind private(first: Card, second: Card, third: Card, remains: collection.immutable.Set[Card])
+  final case class ThreeOfKind private(first: Card, second: Card, third: Card, remains: Set[Card])
     extends PokerCombination {
     override def weight: Byte = 4
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
@@ -77,7 +77,7 @@ object PokerCombination {
     }
   }
 
-  final case class Straight private(straight: collection.immutable.Set[Card]) extends PokerCombination {
+  final case class Straight private(straight: Set[Card]) extends PokerCombination {
     override def weight: Byte = 5
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
@@ -90,7 +90,7 @@ object PokerCombination {
     }
   }
 
-  final case class Flush private(flush: collection.immutable.Set[Card]) extends PokerCombination {
+  final case class Flush private(flush: Set[Card]) extends PokerCombination {
     override def weight: Byte = 6
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
@@ -130,7 +130,7 @@ object PokerCombination {
     }
   }
 
-  final case class StraightFlush private(straightFlush: collection.immutable.Set[Card]) extends PokerCombination {
+  final case class StraightFlush private(straightFlush: Set[Card]) extends PokerCombination {
     override def weight: Byte = 9
     override def compare(that: PokerCombination): Int = compareByWeight(this, that)
       .getOrElse(0)
