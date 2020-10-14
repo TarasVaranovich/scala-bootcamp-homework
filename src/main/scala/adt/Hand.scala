@@ -5,27 +5,23 @@ sealed trait Hand {
 }
 
 object Hand {
-  sealed trait HandBuilder {
-    def fromCards(cards: Set[Card]): Option[Hand]
-  }
+
+  private def fromCardsFunction(handSize: Int, create: (List[Card]) => Hand): (Set[Card]) => Option[Hand] =
+    (cards: Set[Card]) => if (cards.size == handSize) Some(create.apply(cards.toList)) else None
 
   final case class Texas private(first: Card, second: Card) extends Hand {
     override def asList: List[Card] = first :: second :: Nil
   }
-  object Texas extends HandBuilder {
-    override def fromCards(cards: Set[Card]): Option[Texas] = {
-      val cardList = cards.toList
-      if (cardList.size == 2) Some(Texas(cardList.head, cardList.last)) else None
-    }
+  object Texas {
+    private val create = (cardList: List[Card]) => Texas(cardList.head, cardList.last)
+    def rules = fromCardsFunction(2, create)
   }
 
   final case class Omaha private(first: Card, second: Card, third: Card, forth: Card) extends Hand {
     override def asList: List[Card] = first :: second :: third :: forth :: Nil
   }
-  object Omaha extends HandBuilder {
-    override def fromCards(cards: Set[Card]): Option[Omaha] = {
-      val cardList = cards.toList
-      if (cardList.size == 4) Some(Omaha(cardList.head, cardList(1), cardList(2), cardList.last)) else None
-    }
+  object Omaha {
+    private val create = (cardList: List[Card]) => Omaha(cardList.head, cardList(1), cardList(2), cardList.last)
+    def rules = fromCardsFunction(4, create)
   }
 }

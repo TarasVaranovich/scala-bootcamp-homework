@@ -1,31 +1,11 @@
 package adt
 
 object TestCase {
+  val texasHoldem = GameService.playGame(Hand.Texas.rules) _
+  val texasResult = texasHoldem.apply(List.empty, List.empty)
+  GameService.judgeResult(texasResult)
 
-  def playGame(boardCards: List[Card], handsCards: List[List[Card]]): Map[Hand, PokerCombination] = {
-    (for {
-      playCards <- handsCards
-      hand <- Hand.Texas.fromCards(playCards.toSet)
-      board <- Board.fromCards(boardCards.toSet)
-      combination <- bestCombination.apply(board, hand)
-      gameSet <- Option.apply((hand, combination))
-    } yield gameSet).toMap
-  }
-
-  private def bestCombination: PartialFunction[(Board, Hand), Option[PokerCombination]] =
-    PokerCombination.StraightFlush.make orElse
-      PokerCombination.FourOfKind.make orElse
-      PokerCombination.FullHouse.make orElse
-      PokerCombination.Flush.make orElse
-      PokerCombination.Straight.make orElse
-      PokerCombination.ThreeOfKind.make orElse
-      PokerCombination.TwoPairs.make orElse
-      PokerCombination.Pair.make orElse
-      PokerCombination.HighCard.make
-
-
-  def judgeResult(result: Map[Hand, PokerCombination]): List[Hand] =
-    result.toSeq.sortBy { case (_, combination) => combination }
-      .map { case (hand, _) => hand }
-      .toList
+  val omahaHoldem = GameService.playGame(Hand.Omaha.rules) _
+  val omahaResult = omahaHoldem.apply(List.empty, List.empty)
+  GameService.judgeResult(omahaResult)
 }
