@@ -3,12 +3,13 @@ package adt
 object TestCase {
 
   def playGame(boardCards: List[Card], handsCards: List[List[Card]]): Map[Hand, PokerCombination] = {
-    handsCards
-      .flatMap(playerCards => Hand.Texas.fromCards(playerCards.toSet)
-        .flatMap(hand => Board.fromCards(boardCards.toSet)
-          .flatMap(board => bestCombination.apply(board, hand)
-            .flatMap(combination => Option.apply((hand, combination)))
-          ))).toMap
+    (for {
+      playCards <- handsCards
+      hand <- Hand.Texas.fromCards(playCards.toSet)
+      board <- Board.fromCards(boardCards.toSet)
+      combination <- bestCombination.apply(board, hand)
+      gameSet <- Option.apply((hand, combination))
+    } yield gameSet).toMap
   }
 
   private def bestCombination: PartialFunction[(Board, Hand), Option[PokerCombination]] =
