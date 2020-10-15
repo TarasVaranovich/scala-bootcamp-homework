@@ -48,8 +48,8 @@ class ImplicitsSpec extends AnyFreeSpec with Matchers {
   "Iterate2 instances provided" - {
     "for Map" in {
       assertCompiles(
-        """import com.evolutiongaming.bootcamp.typeclass.ImplicitsHomework.SuperVipCollections4s._
-          |import com.evolutiongaming.bootcamp.typeclass.ImplicitsHomework.SuperVipCollections4s.instances._
+        """import typeclass.Implicits.SuperVipCollections4s._
+          |import typeclass.Implicits.SuperVipCollections4s.instances._
           |
           |implicitly[Iterate2[Map]]
           |""".stripMargin
@@ -57,8 +57,8 @@ class ImplicitsSpec extends AnyFreeSpec with Matchers {
     }
     "for PackedMultiMap" in {
       assertCompiles(
-        """import com.evolutiongaming.bootcamp.typeclass.ImplicitsHomework.SuperVipCollections4s._
-          |import com.evolutiongaming.bootcamp.typeclass.ImplicitsHomework.SuperVipCollections4s.instances._
+        """import typeclass.Implicits.SuperVipCollections4s._
+          |import typeclass.Implicits.SuperVipCollections4s.instances._
           |
           |implicitly[Iterate2[PackedMultiMap]]
           |""".stripMargin

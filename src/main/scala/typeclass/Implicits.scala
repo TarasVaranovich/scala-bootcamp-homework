@@ -1,12 +1,15 @@
 package typeclass
 
-import typeclass.Implicits.SuperVipCollections4s.syntax.sizeScore
+import typeclass.Implicits.SuperVipCollections4s.instances.rawMapSizeScore
+import typeclass.Implicits.SuperVipCollections4s.syntax.{GetSizeScoreOps, sizeScore}
 
+import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable
 
 //fill in implementation gaps here making the ImplicitsHomeworkSpec pass!
 object Implicits {
+
   /**
    * Lo and behold! Brand new super-useful collection library for Scala!
    *
@@ -30,6 +33,8 @@ object Implicits {
   object SuperVipCollections4s {
     type SizeScore = Int
 
+    val HEADER_SIZE: Short = 12
+
     /**
      * Type class
      */
@@ -41,12 +46,11 @@ object Implicits {
 
       def sizeScore[A](a: A)(implicit sizeScore: GetSizeScore[A]): SizeScore = sizeScore.apply(a)
 
-
-      //      implicit class GetSizeScoreOps[T: GetSizeScore](inner: T) {
-      //        def sizeScore: SizeScore = syntax.sizeScore[T].apply(inner)
-      //      }
-      implicit class GetSizeScoreOps[T](inner: T) {
-        def sizeScore(implicit getSizeScore: GetSizeScore[T]): SizeScore = getSizeScore.apply(inner)
+      implicit class GetSizeScoreOps[T: GetSizeScore](inner: T) {
+        def sizeScore: SizeScore = {
+          val getSizeScore: GetSizeScore[T] = implicitly[GetSizeScore[T]]
+          getSizeScore.apply(inner)
+        }
       }
     }
 
@@ -70,9 +74,22 @@ object Implicits {
        */
       private val map = mutable.LinkedHashMap.empty[K, V]
 
-      def put(key: K, value: V): Unit = ???
+      def put(key: K, value: V): Unit = {
+        val currentSizeScore = rawMapSizeScore(map.toMap)
+        val entrySizeScore = sizeScore(key) + sizeScore(value)
+        if (entrySizeScore > maxSizeScore) println(s"Map size is '$maxSizeScore' but required '$entrySizeScore''")
+        else if (entrySizeScore + currentSizeScore <= maxSizeScore) map.put(key, value)
+        else cleanMapToSizeScore(map, maxSizeScore - entrySizeScore).put(key, value)
+      }
 
-      def get(key: K): Option[V] = ???
+      @tailrec
+      private def cleanMapToSizeScore(map: mutable.LinkedHashMap[K, V], sizeScore: SizeScore): mutable.LinkedHashMap[K, V] = {
+        val firstKey = map.keys.head
+        map.remove(firstKey)
+        if (rawMapSizeScore(map.toMap) > sizeScore) cleanMapToSizeScore(map, sizeScore) else map
+      }
+
+      def get(key: K): Option[V] = map.get(key)
     }
 
     /**
@@ -91,6 +108,7 @@ object Implicits {
     trait Iterate[-F[_]] {
       def iterator[T](f: F[T]): Iterator[T]
     }
+
     /**
      * Same as [[Iterate]] but for collections containing 2 types of values (think Map's and like)
      */
@@ -110,6 +128,15 @@ object Implicits {
       }
       //Provide Iterate2 instances for Map and PackedMultiMap!
       //if the code doesn't compile while you think it should - sometimes full rebuild helps!
+      implicit val mapIterator: Iterate2[Map] = new Iterate2[Map] {
+        override def iterator1[T, S](f: Map[T, S]): Iterator[T] = f.keys.iterator
+        override def iterator2[T, S](f: Map[T, S]): Iterator[S] = f.values.iterator
+      }
+
+      implicit val packedMultiMapIterator: Iterate2[PackedMultiMap] = new Iterate2[PackedMultiMap] {
+        override def iterator1[T, S](f: PackedMultiMap[T, S]): Iterator[T] = f.inner.toMap.keys.iterator
+        override def iterator2[T, S](f: PackedMultiMap[T, S]): Iterator[S] = f.inner.toMap.values.iterator
+      }
 
       /*
       replace this big guy with proper implicit instances for types:
@@ -123,63 +150,57 @@ object Implicits {
       List and other collections and then replace those with generic instances.
        */
       implicit def stubGetSizeScore[T]: GetSizeScore[T] = new GetSizeScore[T] {
-        override def apply(value: T): SizeScore = 33
+        override def apply(value: T): SizeScore = 0
       }
 
-      //TODO: Why implicit class recognize parameter as a list but implicit method as a list type?
-      implicit def listSizeScore[T]: GetSizeScore[List[T]] = new GetSizeScore[List[T]] {
-        override def apply(value: List[T]): SizeScore = 12 + value.map(sizeScore).sum
+      implicit def stubGetSizeScore[T: GetSizeScore]: GetSizeScore[T] = new GetSizeScore[T] {
+        override def apply(value: T): SizeScore = 0
+      }
+      
+      implicit def listSizeScore[T: GetSizeScore]: GetSizeScore[List[T]] = new GetSizeScore[List[T]] {
+        override def apply(value: List[T]): SizeScore = HEADER_SIZE + value.map(sizeScore(_)).sum
       }
 
-      implicit def arraySizeScore[T]: GetSizeScore[Array[T]] = new GetSizeScore[Array[T]] {
-        override def apply(value: Array[T]): SizeScore = 46
+      implicit def arraySizeScore[T: GetSizeScore]: GetSizeScore[Array[T]] = new GetSizeScore[Array[T]] {
+        override def apply(value: Array[T]): SizeScore = HEADER_SIZE + value.map(sizeScore(_)).sum
       }
 
-      implicit def vectorSizeScore[T]: GetSizeScore[Vector[T]] = new GetSizeScore[Vector[T]] {
-        override def apply(value: Vector[T]): SizeScore = 47
+      implicit def vectorSizeScore[T: GetSizeScore]: GetSizeScore[Vector[T]] = new GetSizeScore[Vector[T]] {
+        override def apply(value: Vector[T]): SizeScore = HEADER_SIZE + value.map(sizeScore(_)).sum
       }
 
-      implicit def mapSizeScore[A, B]: GetSizeScore[Map[A, B]] = new GetSizeScore[Map[A, B]] {
-        override def apply(value: Map[A, B]): SizeScore = 48
+      implicit def mapSizeScore[A: GetSizeScore, B: GetSizeScore]: GetSizeScore[Map[A, B]] = new GetSizeScore[Map[A, B]] {
+        override def apply(value: Map[A, B]): SizeScore = HEADER_SIZE + rawMapSizeScore(value)
       }
 
-      implicit def packedMultiMapSizeScore[A, B]: GetSizeScore[PackedMultiMap[A, B]] = new GetSizeScore[PackedMultiMap[A, B]] {
-        override def apply(value: PackedMultiMap[A, B]): SizeScore = 49
+      implicit def packedMultiMapSizeScore[A: GetSizeScore, B: GetSizeScore]: GetSizeScore[PackedMultiMap[A, B]] = new GetSizeScore[PackedMultiMap[A, B]] {
+        override def apply(value: PackedMultiMap[A, B]): SizeScore = HEADER_SIZE + rawMapSizeScore(value.inner.toMap)
       }
+      //TODO: refactor to apply each type of map
+      def rawMapSizeScore[A: GetSizeScore, B: GetSizeScore](map: Map[A, B]): SizeScore =
+        map
+          .map { case (key: A, value: B) => (sizeScore(key), sizeScore(value)) }
+          .map { case (key: Int, value: Int) => key + value }
+          .sum
 
-      /**
-       * Type class instance for 'Byte'
-       */
       implicit val byteSizeScore: GetSizeScore[Byte] = new GetSizeScore[Byte] {
         override def apply(value: Byte): SizeScore = 1
       }
 
-      /**
-       * Type class instance for 'Char'
-       */
       implicit val charSizeScore: GetSizeScore[Char] = new GetSizeScore[Char] {
         override def apply(value: Char): SizeScore = 2
       }
 
-      /**
-       * Type class instance for 'Int'
-       */
       implicit val intSizeScore: GetSizeScore[Int] = new GetSizeScore[Int] {
         override def apply(value: Int): SizeScore = 4
       }
 
-      /**
-       * Type class instance for 'Long'
-       */
       implicit val longSizeScore: GetSizeScore[Long] = new GetSizeScore[Long] {
         override def apply(value: Long): SizeScore = 8
       }
 
-      /**
-       * Type class instance for 'String'
-       */
       implicit val stringSizeScore: GetSizeScore[String] = new GetSizeScore[String] {
-        override def apply(value: String): SizeScore = 12 + value.length * 2
+        override def apply(value: String): SizeScore = HEADER_SIZE + value.length * 2
       }
     }
   }
@@ -191,6 +212,7 @@ object Implicits {
   object MyTwitter {
 
     import SuperVipCollections4s._
+    import SuperVipCollections4s.instances._
 
     final case class Twit(
                            id: Long,
@@ -199,12 +221,21 @@ object Implicits {
                            attributes: PackedMultiMap[String, String],
                            fbiNotes: List[FbiNote],
                          )
+    object Twit {
+      implicit val twitGetSizeScore: GetSizeScore[Twit] = (value: Twit) =>
+        HEADER_SIZE + value.id.sizeScore + value.userId.sizeScore + value.hashTags.sizeScore +
+          value.attributes.sizeScore + value.fbiNotes.sizeScore
+    }
 
     final case class FbiNote(
                               month: String,
                               favouriteChar: Char,
                               watchedPewDiePieTimes: Long,
                             )
+    object FbiNote {
+      implicit val fbiNoteGetSizeScore: GetSizeScore[FbiNote] = (value: FbiNote) =>
+        HEADER_SIZE + value.month.sizeScore + value.favouriteChar.sizeScore + value.watchedPewDiePieTimes.sizeScore
+    }
 
     trait TwitCache {
       def put(twit: Twit): Unit
@@ -214,6 +245,13 @@ object Implicits {
     /*
     Return an implementation based on MutableBoundedCache[Long, Twit]
      */
-    def createTwitCache(maxSizeScore: SizeScore): TwitCache = ???
+    def createTwitCache(maxSizeScore: SizeScore): TwitCache = new TwitCache {
+
+      import instances._
+
+      private val cache = new MutableBoundedCache[Long, Twit](maxSizeScore)
+      override def put(twit: Twit): Unit = cache.put(twit.id, twit)
+      override def get(id: Long): Option[Twit] = cache.get(id)
+    }
   }
 }
