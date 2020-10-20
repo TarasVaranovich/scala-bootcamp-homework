@@ -1,0 +1,17 @@
+{
+  "_internal": {
+    "pubDateTime": "2020-10-20 06:00:27.988 EDT",
+    "igorPath": "cron,1603188025728,1603188025728|router,1603188025728,1603188025846|domUpdater,1603188025944,1603188027664|feedProducer,1603188027754,1603188029180",
+    "routeName": "CronJob::0600",
+    "routeValue": "CronJob::0600",
+    "xslt": "NBA/xsl/date/scoreboard/marty_daily_scoreboard.xsl",
+    "xsltForceRecompile": "true",
+    "xsltInCache": "false",
+    "xsltCompileTimeMillis": "200",
+    "xsltTransformTimeMillis": "16",
+    "consolidatedDomKey": "prod__transform__marty_daily_scoreboard__2342293146015",
+    "endToEndTimeMillis": "3452"
+  },
+  "numGames": 0,
+  "games": []
+}
