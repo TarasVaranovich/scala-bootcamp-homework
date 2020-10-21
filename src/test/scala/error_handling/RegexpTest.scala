@@ -8,13 +8,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.util.matching.Regex
 
 class RegexpTest extends AnyFlatSpec {
-
-  "credit card" should "be successfully created" in {
-    val creditCard = CreditCard.from("JOHN SMITH", "123456781234567800",
-      "05/23", "012")
-    assert(creditCard.isEmpty)
-  }
-
   "name regex" should "block invalid names and pass valid names" in {
     val nameRegex: Regex = "^[A-Z][A-Z\\-]+[\\s]{1}[A-Z\\-]+[A-Z]$".r
     val nameLengthRegex: Regex = "[A-Z\\-\\s]{2,26}".r

@@ -1,65 +1,75 @@
 package error_handling
 
-import java.util.Calendar
+import java.time.{Month, YearMonth}
 
 import cats.data.ValidatedNec
 import cats.implicits.{catsSyntaxApply, catsSyntaxTuple4Semigroupal, catsSyntaxValidatedIdBinCompat0}
+import error_handling.ErrorHandling.NumberType.{LONG, MEDIUM, SHORT}
 import error_handling.ErrorHandling.ValidationError._
 
+import scala.annotation.tailrec
 import scala.util.matching.Regex
 
 object ErrorHandling {
+  trait NumberType {
+    def value: Byte
+  }
+
+  object NumberType {
+    case object SHORT extends NumberType {
+      override def value: Byte = 13
+    }
+
+    case object MEDIUM extends NumberType {
+      override def value: Byte = 16
+    }
+
+    case object LONG extends NumberType {
+      override def value: Byte = 19
+    }
+  }
+
+  final case class CardNumber private(number: Long, numberType: NumberType)
+  object CardNumber {
+    def from(number: Long, numberType: NumberType): Option[CardNumber] = numberType match {
+      case SHORT => if (number <= 9999999999999L) Option.apply(CardNumber(number, SHORT)) else Option.empty
+      case MEDIUM => if (number <= 9999999999999999L) Option.apply(CardNumber(number, MEDIUM)) else Option.empty
+      case LONG => Option.apply(CardNumber(number, LONG))
+    }
+  }
 
   /**
    * Class represents a general bank credit card instance
    *
    * @param name           full name of card holder. Name and surname divided by gap with possible hyphens in upper case
    *                       full name length is 2..26 according to 'ISO IEC 7813'
-   * @param number         credit card number. Consists of 13, 16 or 19 digits
+   * @param number         credit card number wrapped in sum adt. Consists of 13, 16 or 19 digits
    * @param expirationDate credit card expiration date
    * @param securityCode   security code - CVV or CVC. Consists of 3 digits
    */
-  case class CreditCard protected(name: String, number: String, expirationDate: String, securityCode: String)
-  object CreditCard {
-    protected val matches = (value: String, regex: Regex) => value match {
-      case regex(_*) => true
-      case _ => false
-    }
-
-    def from(name: String,
-             number: String,
-             expirationDate: String,
-             securityCode: String): Option[CreditCard] = {
-      if (matches(name, "^[A-Z][A-Z\\-]+[\\s]{1}[A-Z\\-]+[A-Z]$".r) &&
-        matches(name, "[A-Z\\-\\s]{2,26}".r) &&
-        matches(number, "[0-9]{13}|[0-9]{16}|[0-9]{19}".r) &&
-        matches(expirationDate, "[0-9]{2}[/]{1}[0-9]{2}".r) &&
-        matches(securityCode, "[0-9]{3}".r))
-        Some(CreditCard(name, number, expirationDate, securityCode)) else None
-    }
-  }
+  case class CreditCard protected(name: String, number: CardNumber, expirationDate: YearMonth, securityCode: Short)
 
   sealed trait ValidationError {
     def message: String
   }
   object ValidationError {
-    case object NameInputError extends ValidationError {
-      override def message: String = "Cannot parse name from given sting"
+    case object NameLengthError extends ValidationError {
+      override def message: String = "Name length should be in range 2..26"
     }
-    case object NumberInputError extends ValidationError {
-      override def message: String = "Cannot parse number from given string"
+    case object NumberLengthError extends ValidationError {
+      override def message: String = "Number should contain 13, 16 or 19 digits"
     }
     case object DataInputError extends ValidationError {
       override def message: String = "Cannot parse date from given value"
     }
-    case object CodeInputError extends ValidationError {
-      override def message: String = "Cannot parse security code from given value"
+    case object SecurityCodeLengthError extends ValidationError {
+      override def message: String = "Security code should have length 3"
     }
-    case object SimpleNameConventionError extends ValidationError {
-      override def message: String = "Simple name convention requires absence of hyphens."
+    case object NameFormatError extends ValidationError {
+      override def message: String = "Name should contain name and surname separated by gap with possible hyphens"
     }
-    case object CardNumberFormatError extends ValidationError {
-      override def message: String = "Not appropriate card number length."
+    case object NumberFormatError extends ValidationError {
+      override def message: String = "Specific number should have 16 length format"
     }
     case object PaymentSystemError extends ValidationError {
       override def message: String = "Not appropriate payment system."
@@ -85,78 +95,72 @@ object ErrorHandling {
     /**
      * Create a credit card of specific type
      *
-     * @param name           should be s simple version of name without hyphens
-     * @param number         should be only 16 digit number with 'American express' payment system(starts from '3')
+     * @param name           should correspond {@link CreditCard} requirements
+     * @param number         should have 'American express' payment system(starts from '3') and {@link MEDIUM} format
      * @param expirationDate should be 'future' date and end on March
      * @param securityCode   should consists at less from 2 different digits (more strict)
      */
-    def validate(name: String, number: String, expirationDate: String, securityCode: String): AllErrorsOr[CreditCard] = {
-      (validateNameInput(name).andThen(validateName),
-        validateNumberInput(number).andThen(validateNumber),
-        validateDateInput(expirationDate).andThen(validateDate),
-        validateSecurityCodeInput(securityCode).andThen(validateSecurityCode))
-        .mapN((name, number, expirationDate, securityCode) =>
-          CreditCard.from(name, number, expirationDate, securityCode))
-        .andThen {
-          case Some(card) => card.validNec
-          case None => BasicCardError.invalidNec
-        }
-    }
+    def validate(name: String, number: CardNumber, expirationDate: YearMonth, securityCode: Short): AllErrorsOr[CreditCard] =
+      (validateNameLength(name).andThen(validateName),
+        validateNumberLength(number).andThen(validateNumber),
+        validateDate(expirationDate),
+        validateSecurityCodeLength(securityCode).andThen(validateSecurityCode))
+        .mapN((name, number, expirationDate, securityCode) => CreditCard(name, number, expirationDate, securityCode))
 
     //NAME VALIDATORS
-    private def validateNameInput(name: String): AllErrorsOr[String] =
-      if (Option(name).isDefined && name.length >= 3) name.validNec else NameInputError.invalidNec
+    private def validateNameLength(name: String): AllErrorsOr[String] =
+      if (2 to 26 contains name.length) name.validNec else NameLengthError.invalidNec
 
     private def validateName(name: String): AllErrorsOr[String] =
-      if (name.contains("-")) SimpleNameConventionError.invalidNec else name.validNec
+      if (matches(name, "^[A-Z][A-Z\\-]+[\\s]{1}[A-Z\\-]+[A-Z]$".r)) name.validNec else NameFormatError.invalidNec
 
     //NUMBER VALIDATORS
-    private def validateNumberInput(number: String): AllErrorsOr[String] =
-      if (Option(number).isDefined && number.matches("[0-9]{13,19}"))
-        number.validNec else NumberInputError.invalidNec
-
-    private def validateNumber(number: String): AllErrorsOr[String] = {
-      validateNumberLength(number) productR validatePaymentSystem(number)
-    }
-    private def validateNumberLength(number: String): AllErrorsOr[String] =
-      if (number.length == 16) number.validNec else CardNumberFormatError.invalidNec
-
-    private def validatePaymentSystem(number: String): AllErrorsOr[String] =
-      if (number.startsWith("3")) number.validNec else PaymentSystemError.invalidNec
-
-    //DATE VALIDATORS
-    private def validateDateInput(date: String): AllErrorsOr[String] = {
-      val checkDateString = (dateStr: String) => {
-        val dateStrings: Array[String] = dateStr.split("/")
-        val dateValue: Array[String] = dateStrings.filter(_.matches("[0-9]{2}"))
-        dateValue.length == 2
-      }
-      if (Option(date).isDefined && date.length == 5 && checkDateString(date))
-        date.validNec else DataInputError.invalidNec
+    private def validateNumberLength(number: CardNumber): AllErrorsOr[CardNumber] = {
+      val numberString: String = increaseToLength(number.number.toString, number.numberType.value)
+      if (13 to 19 by 3 contains numberString.length) number.validNec else NumberLengthError.invalidNec
     }
 
-    private def validateDate(expirationDate: String): AllErrorsOr[String] = {
+    private def validateNumber(number: CardNumber): AllErrorsOr[CardNumber] = {
+      validateNumberFormat(number) productR validatePaymentSystem(number)
+    }
+
+    private def validateNumberFormat(number: CardNumber): AllErrorsOr[CardNumber] = {
+      val numberString: String = increaseToLength(number.number.toString, number.numberType.value)
+      if (numberString.length == 16) number.validNec else NumberFormatError.invalidNec
+    }
+
+    private def validatePaymentSystem(number: CardNumber): AllErrorsOr[CardNumber] =
+      if (number.number.toString.startsWith("3")) number.validNec else PaymentSystemError.invalidNec
+
+    private def validateDate(expirationDate: YearMonth): AllErrorsOr[YearMonth] = {
       validateDateExpired(expirationDate) productR validateBusinessMonth(expirationDate)
     }
 
-    private def validateDateExpired(expirationDate: String): AllErrorsOr[String] = {
-      import java.util.GregorianCalendar
-      val month: Int = expirationDate.split("/").head.toInt
-      val year: Int = expirationDate.split("/").last.toInt + 2000
-      val expirationCalendar: Calendar = new GregorianCalendar(year, month - 1, 1)
-      val currentCalendar: Calendar = new GregorianCalendar()
-      if (expirationCalendar.after(currentCalendar)) expirationDate.validNec else DateExpirationError.invalidNec
+    private def validateDateExpired(expirationDate: YearMonth): AllErrorsOr[YearMonth] = {
+      if (expirationDate.isAfter(YearMonth.now()))
+        expirationDate.validNec else DateExpirationError.invalidNec
     }
 
-    private def validateBusinessMonth(expirationDate: String): AllErrorsOr[String] =
-      if (expirationDate.startsWith("03")) expirationDate.validNec else BusinessMonthError.invalidNec
+    private def validateBusinessMonth(expirationDate: YearMonth): AllErrorsOr[YearMonth] =
+      if (expirationDate.getMonth == Month.MARCH) expirationDate.validNec else BusinessMonthError.invalidNec
 
     //CODE VALIDATORS
-    private def validateSecurityCodeInput(securityCode: String): AllErrorsOr[String] =
-      if (Option(securityCode).isDefined && securityCode.matches("[0-9]{3}"))
-        securityCode.validNec else CodeInputError.invalidNec
+    private def validateSecurityCodeLength(securityCode: Short): AllErrorsOr[Short] =
+      if (1 to 999 contains securityCode)
+        securityCode.validNec else SecurityCodeLengthError.invalidNec
 
-    private def validateSecurityCode(securityCode: String): AllErrorsOr[String] =
-      if (securityCode.matches("(.)\\1*")) SecurityCodeWeakError.invalidNec else securityCode.validNec
+    private def validateSecurityCode(securityCode: Short): AllErrorsOr[Short] = {
+      if (matches(increaseToLength(securityCode.toString, 3), "(.)\\1*".r))
+        SecurityCodeWeakError.invalidNec else securityCode.validNec
+    }
+
+    @tailrec
+    private def increaseToLength(number: String, length: Int): String =
+      if (number.length < length) increaseToLength(s"0$number", length) else number
+
+    protected val matches = (value: String, regex: Regex) => value match {
+      case regex(_*) => true
+      case _ => false
+    }
   }
 }
