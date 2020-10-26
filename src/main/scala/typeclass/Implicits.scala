@@ -119,6 +119,7 @@ object Implicits {
 
     object instances {
 
+      //Iterable once iterate
       implicit val iterableOnceIterate: Iterate[Iterable] = new Iterate[Iterable] {
         override def iterator[T](f: Iterable[T]): Iterator[T] = f.iterator
       }
@@ -126,16 +127,20 @@ object Implicits {
       implicit val arrayIterate: Iterate[Array] = new Iterate[Array] {
         override def iterator[T](f: Array[T]): Iterator[T] = f.iterator
       }
+      //Vector iterate
+      implicit val vectorIterate: Iterate[Vector] = new Iterate[Vector] {
+        override def iterator[T](f: Vector[T]): Iterator[T] = f.iterator
+      }
       //Provide Iterate2 instances for Map and PackedMultiMap!
       //if the code doesn't compile while you think it should - sometimes full rebuild helps!
-      implicit val mapIterator: Iterate2[Map] = new Iterate2[Map] {
-        override def iterator1[T, S](f: Map[T, S]): Iterator[T] = f.keys.iterator
-        override def iterator2[T, S](f: Map[T, S]): Iterator[S] = f.values.iterator
+      implicit val mapIterate: Iterate2[Map] = new Iterate2[Map] {
+        override def iterator1[T, S](f: Map[T, S]): Iterator[T] = f.keysIterator
+        override def iterator2[T, S](f: Map[T, S]): Iterator[S] = f.valuesIterator
       }
 
-      implicit val packedMultiMapIterator: Iterate2[PackedMultiMap] = new Iterate2[PackedMultiMap] {
-        override def iterator1[T, S](f: PackedMultiMap[T, S]): Iterator[T] = f.inner.toMap.keys.iterator
-        override def iterator2[T, S](f: PackedMultiMap[T, S]): Iterator[S] = f.inner.toMap.values.iterator
+      implicit val packedMultiMapIterate: Iterate2[PackedMultiMap] = new Iterate2[PackedMultiMap] {
+        override def iterator1[T, S](f: PackedMultiMap[T, S]): Iterator[T] = f.inner.toMap.keysIterator
+        override def iterator2[T, S](f: PackedMultiMap[T, S]): Iterator[S] = f.inner.toMap.valuesIterator
       }
 
       /*
@@ -149,39 +154,21 @@ object Implicits {
       If you struggle with writing generic instances for Iterate and Iterate2, start by writing instances for
       List and other collections and then replace those with generic instances.
        */
-      implicit def stubGetSizeScore[T]: GetSizeScore[T] = new GetSizeScore[T] {
-        override def apply(value: T): SizeScore = 0
+      implicit def iterateSizeScore[F[_] : Iterate, T: GetSizeScore]: GetSizeScore[F[T]] = new GetSizeScore[F[T]] {
+        override def apply(value: F[T]): SizeScore =
+          HEADER_SIZE + implicitly[Iterate[F]].iterator(value).map(sizeScore(_)).sum
       }
 
-      implicit def stubGetSizeScore[T: GetSizeScore]: GetSizeScore[T] = new GetSizeScore[T] {
-        override def apply(value: T): SizeScore = 0
-      }
-      
-      implicit def listSizeScore[T: GetSizeScore]: GetSizeScore[List[T]] = new GetSizeScore[List[T]] {
-        override def apply(value: List[T]): SizeScore = HEADER_SIZE + value.map(sizeScore(_)).sum
-      }
-
-      implicit def arraySizeScore[T: GetSizeScore]: GetSizeScore[Array[T]] = new GetSizeScore[Array[T]] {
-        override def apply(value: Array[T]): SizeScore = HEADER_SIZE + value.map(sizeScore(_)).sum
+      implicit def iterate2SizeScore[F[_, _] : Iterate2, K: GetSizeScore, V: GetSizeScore]: GetSizeScore[F[K, V]] = new GetSizeScore[F[K, V]] {
+        override def apply(value: F[K, V]): SizeScore = {
+          val iterator1: Iterator[K] = implicitly[Iterate2[F]].iterator1(value)
+          val iterator2: Iterator[V] = implicitly[Iterate2[F]].iterator2(value)
+          HEADER_SIZE + iterator1.map(sizeScore(_)).sum + iterator2.map(sizeScore(_)).sum
+        }
       }
 
-      implicit def vectorSizeScore[T: GetSizeScore]: GetSizeScore[Vector[T]] = new GetSizeScore[Vector[T]] {
-        override def apply(value: Vector[T]): SizeScore = HEADER_SIZE + value.map(sizeScore(_)).sum
-      }
-
-      implicit def mapSizeScore[A: GetSizeScore, B: GetSizeScore]: GetSizeScore[Map[A, B]] = new GetSizeScore[Map[A, B]] {
-        override def apply(value: Map[A, B]): SizeScore = HEADER_SIZE + rawMapSizeScore(value)
-      }
-
-      implicit def packedMultiMapSizeScore[A: GetSizeScore, B: GetSizeScore]: GetSizeScore[PackedMultiMap[A, B]] = new GetSizeScore[PackedMultiMap[A, B]] {
-        override def apply(value: PackedMultiMap[A, B]): SizeScore = HEADER_SIZE + rawMapSizeScore(value.inner.toMap)
-      }
-      //TODO: refactor to apply each type of map
       def rawMapSizeScore[A: GetSizeScore, B: GetSizeScore](map: Map[A, B]): SizeScore =
-        map
-          .map { case (key: A, value: B) => (sizeScore(key), sizeScore(value)) }
-          .map { case (key: Int, value: Int) => key + value }
-          .sum
+        map.view.map { case (key: A, value: B) => sizeScore(key) + sizeScore(value) }.sum
 
       implicit val byteSizeScore: GetSizeScore[Byte] = new GetSizeScore[Byte] {
         override def apply(value: Byte): SizeScore = 1

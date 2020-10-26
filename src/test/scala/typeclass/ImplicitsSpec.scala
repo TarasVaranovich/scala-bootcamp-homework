@@ -2,7 +2,6 @@ package typeclass
 
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import typeclass.Implicits.MyTwitter.{FbiNote, Twit, createTwitCache}
 import typeclass.Implicits.SuperVipCollections4s.syntax.GetSizeScoreOps
 import typeclass.Implicits.SuperVipCollections4s.{GetSizeScore, MutableBoundedCache, PackedMultiMap, SizeScore}
 import typeclass.ImplicitsSpec.TestValue
