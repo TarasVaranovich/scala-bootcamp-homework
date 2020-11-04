@@ -22,9 +22,7 @@ import scala.language.postfixOps
 object AsyncHomework extends App {
   private implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
-  var addresses = List("https://github.com", "https://bitbucket.org")
-  //TODO: rename variables
-  //var addresses: List[String] = if (args.length == 0) List("http://google.com") else args.toList
+  var addresses: List[String] = if (args.length == 0) List("http://google.com") else args.toList
 
   addresses.foreach(address => {
     for {
