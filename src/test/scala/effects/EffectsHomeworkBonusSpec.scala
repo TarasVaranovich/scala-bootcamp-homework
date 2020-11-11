@@ -1,14 +1,16 @@
 package effects
 
-import effects.EffectsHomework1.IO
+import effects.EffectsHomeworkBonus.IO
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 import scala.util.Try
 
-class EffectsHomework1Spec extends AnyFlatSpec {
+class EffectsHomeworkBonusSpec extends AnyFlatSpec {
+
   "map operation" should "successfully convert IO value to string" in {
     assert(IO(OneVal).map(_.toString).unsafeRunSync() == "1")
   }
@@ -17,12 +19,30 @@ class EffectsHomework1Spec extends AnyFlatSpec {
     assertThrows[NumberFormatException](IO("not a number").map(_.toInt).unsafeRunSync() == 1)
   }
 
+  "map operation" should "properly calculate in recursive call" in {
+    def recursiveIncrement(io: IO[Int]): IO[Int] = {
+      if (io.unsafeRunSync() < TwoBillion) {
+        recursiveIncrement(io.map(_ + 1))
+      } else io
+    }
+    assert(recursiveIncrement(IO(OneVal)).unsafeRunSync() == TwoBillion)
+  }
+
   "flatMap operation" should "successfully chain calculations" in {
     assert(IO(1).flatMap(value => IO(s"incremented: ${value + 1}")).unsafeRunSync() == "incremented: 2")
   }
 
   "flatMap operation" should "chaining exception" in {
     assertThrows[ArithmeticException](IO(1).flatMap(value => IO(value / 0)).unsafeRunSync())
+  }
+
+  "flatMap operation" should "properly calculate in recursive call" in {
+    def recursiveIncrement(io: IO[Int]): IO[Int] = {
+      if (io.unsafeRunSync() < TwoBillion) {
+        recursiveIncrement(io.flatMap(value => IO(value + 1)))
+      } else io
+    }
+    assert(recursiveIncrement(IO(OneVal)).unsafeRunSync() == TwoBillion)
   }
 
   "chaining IO by *> operation" should "return last result" in {
@@ -112,7 +132,7 @@ class EffectsHomework1Spec extends AnyFlatSpec {
   }
 
   "IO created by 'apply'" should "return constructor parameter" in {
-    assert(IO.apply(OneVal).unsafeRunSync() == OneVal)
+    assert(IO(OneVal).unsafeRunSync() == OneVal)
   }
 
   "IO created by 'suspend'" should "return constructor parameter" in {
