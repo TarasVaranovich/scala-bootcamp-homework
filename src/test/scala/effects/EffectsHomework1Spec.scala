@@ -9,9 +9,6 @@ import scala.language.postfixOps
 import scala.util.Try
 
 class EffectsHomework1Spec extends AnyFlatSpec {
-  private val ONE_VAL: Int = 1
-  private val DIVIDE_BY_ZERO: String = "/ by zero"
-  private val MESSAGE: String = "Successful result"
   private implicit val executionContext = ExecutionContext.global
 
   class Container(msg: String) {
@@ -20,7 +17,7 @@ class EffectsHomework1Spec extends AnyFlatSpec {
   case class IntContainer(numberVal: Int, description: String) extends Container(description)
 
   "map operation" should "successfully convert IO value to string" in {
-    assert(IO(ONE_VAL).map(_.toString).unsafeRunSync() == "1")
+    assert(IO(OneVal).map(_.toString).unsafeRunSync() == "1")
   }
 
   "map operation" should "chaining exception" in {
@@ -36,122 +33,122 @@ class EffectsHomework1Spec extends AnyFlatSpec {
   }
 
   "chaining IO by *> operation" should "return last result" in {
-    assert((IO(ONE_VAL) *> IO(MESSAGE)).unsafeRunSync() == MESSAGE)
+    assert((IO(OneVal) *> IO(Message)).unsafeRunSync() == Message)
   }
 
   "unsuccessfully chaining IO by *> operation" should "chaining exception" in {
-    assertThrows[ArithmeticException]((IO(ONE_VAL / 0) *> IO(MESSAGE)).unsafeRunSync())
+    assertThrows[ArithmeticException]((IO(OneVal / 0) *> IO(Message)).unsafeRunSync())
   }
 
   "as operation" should "successfully replace IO result" in {
-    assert((IO(ONE_VAL).as(MESSAGE).unsafeRunSync() == MESSAGE))
+    assert((IO(OneVal).as(Message).unsafeRunSync() == Message))
   }
 
   "as operation" should "chaining exception" in {
-    assertThrows[ArithmeticException]((IO(ONE_VAL / 0).as(MESSAGE).unsafeRunSync()))
+    assertThrows[ArithmeticException]((IO(OneVal / 0).as(Message).unsafeRunSync()))
   }
 
   "void operation" should "return 'unit' value" in {
-    assert(IO(ONE_VAL).void.unsafeRunSync() == ())
+    assert(IO(OneVal).void.unsafeRunSync() == ())
   }
 
   "successful attempt" should "return 'right' with value" in {
-    assert(IO(ONE_VAL).attempt.unsafeRunSync() == Right(ONE_VAL))
+    assert(IO(OneVal).attempt.unsafeRunSync() == Right(OneVal))
   }
 
   "failure attempt" should "return 'left' with Arithmetic exception" in {
-    assert(IO(ONE_VAL / 0).attempt.unsafeRunSync().swap.getOrElse(throw new Error).isInstanceOf[ArithmeticException])
+    assert(IO(OneVal / 0).attempt.unsafeRunSync().swap.getOrElse(throw new Error).isInstanceOf[ArithmeticException])
   }
 
   "successful option operation" should "return 'some' with value" in {
-    assert(IO(ONE_VAL).option.unsafeRunSync().contains(ONE_VAL))
+    assert(IO(OneVal).option.unsafeRunSync().contains(OneVal))
   }
 
   "failed options operation" should "return 'none'" in {
-    assert(IO(ONE_VAL / 0).option.unsafeRunSync().isEmpty)
+    assert(IO(OneVal / 0).option.unsafeRunSync().isEmpty)
   }
 
   "handleErrorWith" should "return value in case of success" in {
-    assert(IO(ONE_VAL).handleErrorWith((_: Throwable) => IO(0)).unsafeRunSync() == ONE_VAL)
+    assert(IO(OneVal).handleErrorWith((_: Throwable) => IO(0)).unsafeRunSync() == OneVal)
   }
 
   "handleErrorWith" should "recover with value in case of error" in {
-    assert(IO(ONE_VAL / 0).handleErrorWith((_: Throwable) => IO(0)).unsafeRunSync() == 0)
+    assert(IO(OneVal / 0).handleErrorWith((_: Throwable) => IO(0)).unsafeRunSync() == 0)
   }
 
   "handleErrorWith" should "return current class field in case of success" in {
     val recover = (ex: Throwable) => IO(new Container(ex.getMessage))
-    val io: IO[IntContainer] = IO(IntContainer(ONE_VAL, MESSAGE))
-    assert(io.handleErrorWith(recover).unsafeRunSync().message == MESSAGE)
+    val io: IO[IntContainer] = IO(IntContainer(OneVal, Message))
+    assert(io.handleErrorWith(recover).unsafeRunSync().message == Message)
   }
 
   "handleErrorWith" should "return parent class field in case of error" in {
     val recover = (ex: Throwable) => IO(new Container(ex.getMessage))
-    val io: IO[IntContainer] = IO(IntContainer(ONE_VAL / 0, MESSAGE))
-    assert(io.handleErrorWith(recover).unsafeRunSync().message == DIVIDE_BY_ZERO)
+    val io: IO[IntContainer] = IO(IntContainer(OneVal / 0, Message))
+    assert(io.handleErrorWith(recover).unsafeRunSync().message == DivideByZero)
   }
 
   "successful redeem operation" should "return value as a string" in {
-    assert(IO(ONE_VAL).redeem(e => e.getMessage, result => result.toString).unsafeRunSync() == "1")
+    assert(IO(OneVal).redeem(e => e.getMessage, result => result.toString).unsafeRunSync() == "1")
   }
 
   "failure redeem operation" should "return error message as string" in {
-    assert(IO(ONE_VAL / 0).redeem(e => e.getMessage, result => result.toString).unsafeRunSync() == DIVIDE_BY_ZERO)
+    assert(IO(OneVal / 0).redeem(e => e.getMessage, result => result.toString).unsafeRunSync() == DivideByZero)
   }
 
   "redeemWith" should "return success value in message encoded after successful invocation" in {
     val recover = (ex: Throwable) => IO(ex.getMessage)
     val bind = (value: Int) => IO(s"Number: $value")
-    assert(IO(ONE_VAL).redeemWith(recover, bind).unsafeRunSync() == "Number: 1")
+    assert(IO(OneVal).redeemWith(recover, bind).unsafeRunSync() == "Number: 1")
   }
 
   "redeemWith" should "return error message after error invocation" in {
     val recover = (ex: Throwable) => IO(ex.getMessage)
     val bind = (value: Int) => IO(s"Number: $value")
-    assert(IO(ONE_VAL / 0).redeemWith(recover, bind).unsafeRunSync() == DIVIDE_BY_ZERO)
+    assert(IO(OneVal / 0).redeemWith(recover, bind).unsafeRunSync() == DivideByZero)
   }
 
   "unsafe to Future" should "return successful result" in {
-    val future: Future[Int] = IO.apply(ONE_VAL).unsafeToFuture()
-    assert(Await.result(future, 30 seconds) == ONE_VAL)
+    val future: Future[Int] = IO(OneVal).unsafeToFuture()
+    assert(Await.result(future, 30 seconds) == OneVal)
   }
 
   "unsafe to Future" should "return exception" in {
-    val future: Future[Int] = IO.apply(ONE_VAL / 0).unsafeToFuture()
+    val future: Future[Int] = IO(OneVal / 0).unsafeToFuture()
     assertThrows[ArithmeticException](Await.result(future, 30 seconds))
   }
 
   "IO created by 'apply'" should "return constructor parameter" in {
-    assert(IO.apply(ONE_VAL).unsafeRunSync() == ONE_VAL)
+    assert(IO.apply(OneVal).unsafeRunSync() == OneVal)
   }
 
   "IO created by 'suspend'" should "return constructor parameter" in {
-    assert(IO.suspend(IO(ONE_VAL)).unsafeRunSync() == ONE_VAL)
+    assert(IO.suspend(IO(OneVal)).unsafeRunSync() == OneVal)
   }
 
   "suspend operation" should "chaining exception" in {
-    assertThrows[ArithmeticException](IO.suspend(IO(ONE_VAL / 0)).unsafeRunSync())
+    assertThrows[ArithmeticException](IO.suspend(IO(OneVal / 0)).unsafeRunSync())
   }
 
   "IO created by 'delay'" should "return constructor parameter" in {
-    assert(IO.delay(ONE_VAL).unsafeRunSync() == ONE_VAL)
+    assert(IO.delay(OneVal).unsafeRunSync() == OneVal)
   }
 
   "IO created by 'pure'" should "return constructor parameter" in {
-    assert(IO.pure(ONE_VAL).unsafeRunSync() == ONE_VAL)
+    assert(IO.pure(OneVal).unsafeRunSync() == OneVal)
   }
 
   "fromEither" should "return value in case of 'right'" in {
-    assert(IO.fromEither(Either.cond(true, ONE_VAL, new ArithmeticException)).unsafeRunSync() == ONE_VAL)
+    assert(IO.fromEither(Either.cond(true, OneVal, new ArithmeticException)).unsafeRunSync() == OneVal)
   }
 
   "fromEither" should "throw exception in case of 'left'" in {
     assertThrows[ArithmeticException](IO
-      .fromEither(Either.cond(false, ONE_VAL, new ArithmeticException)).unsafeRunSync())
+      .fromEither(Either.cond(false, OneVal, new ArithmeticException)).unsafeRunSync())
   }
 
   "fromOption" should "return value in case of 'some'" in {
-    assert(IO.fromOption(Some(ONE_VAL))(new ArithmeticException).unsafeRunSync() == ONE_VAL)
+    assert(IO.fromOption(Some(OneVal))(new ArithmeticException).unsafeRunSync() == OneVal)
   }
 
   "fromOption" should "throw exception in case of 'none'" in {
@@ -159,11 +156,11 @@ class EffectsHomework1Spec extends AnyFlatSpec {
   }
 
   "fromTry" should "return value in case of 'success'" in {
-    assert(IO.fromTry(Try(ONE_VAL)).unsafeRunSync() == ONE_VAL)
+    assert(IO.fromTry(Try(OneVal)).unsafeRunSync() == OneVal)
   }
 
   "fromTry" should "chain exception in case of 'failure'" in {
-    assertThrows[ArithmeticException](IO.fromTry(Try(ONE_VAL / 0)).unsafeRunSync())
+    assertThrows[ArithmeticException](IO.fromTry(Try(OneVal / 0)).unsafeRunSync())
   }
 
   "IO created by none" should "return 'none'" in {

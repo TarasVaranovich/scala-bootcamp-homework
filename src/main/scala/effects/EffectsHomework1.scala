@@ -1,6 +1,8 @@
 package effects
 
-import scala.concurrent.{Future, Promise}
+import java.util.concurrent.Executors
+
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /*
@@ -27,6 +29,9 @@ import scala.util.{Failure, Success, Try}
  * Ask questions in the bootcamp chat if stuck on this task.
  */
 object EffectsHomework1 {
+  //Separate ec for blocking async operations
+  private implicit val executionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
+
   final class IO[A] private(private val run: () => A) {
 
     /**
@@ -39,7 +44,7 @@ object EffectsHomework1 {
      * failures would be completely silent and `IO` references would
      * never terminate on evaluation.
      */
-    def map[B](f: A => B): IO[B] = IO(f.apply(this.run.apply()))
+    def map[B](f: A => B): IO[B] = new IO(() => f(run()))
 
     /**
      * Monadic bind on `IO`, used for sequentially composing two `IO`
@@ -56,7 +61,7 @@ object EffectsHomework1 {
      * failures would be completely silent and `IO` references would
      * never terminate on evaluation.
      */
-    def flatMap[B](f: A => IO[B]): IO[B] = f.apply(this.run.apply())
+    def flatMap[B](f: A => IO[B]): IO[B] = new IO(f(run()).run)
 
     /**
      * Runs the current IO, then runs the parameter, keeping its result.
@@ -89,7 +94,7 @@ object EffectsHomework1 {
      *
      * @see [[IO.raiseError]]
      */
-    def attempt: IO[Either[Throwable, A]] = IO(Try(this.run.apply()).toEither)
+    def attempt: IO[Either[Throwable, A]] = new IO(() => Try(run()).toEither)
 
     /**
      * Replaces failures in this IO with an empty Option.
@@ -102,9 +107,9 @@ object EffectsHomework1 {
      *
      * Implements `ApplicativeError.handleErrorWith`.
      */
-    def handleErrorWith[AA >: A](f: Throwable => IO[AA]): IO[AA] = Try(this.run.apply()) match {
-      case Success(value) => IO(value)
-      case Failure(error) => f.apply(error)
+    def handleErrorWith[AA >: A](f: Throwable => IO[AA]): IO[AA] = Try(run()) match {
+      case Success(value) => new IO(() => value)
+      case Failure(error) => new IO(() => f(error).run())
     }
 
     /**
@@ -130,9 +135,9 @@ object EffectsHomework1 {
      * @param map     is a function used for mapping the result of the source
      *                in case it ends in success
      */
-    def redeem[B](recover: Throwable => B, map: A => B): IO[B] = Try(map(this.run.apply())) match {
-      case Success(value) => IO(value)
-      case Failure(exception) => IO(recover(exception))
+    def redeem[B](recover: Throwable => B, map: A => B): IO[B] = Try(map(run())) match {
+      case Success(value) => new IO(() => value)
+      case Failure(exception) => new IO(() => recover(exception))
     }
 
     /**
@@ -164,9 +169,9 @@ object EffectsHomework1 {
      * @param bind    is the function that gets to transform the source
      *                in case of success
      */
-    def redeemWith[B](recover: Throwable => IO[B], bind: A => IO[B]): IO[B] = Try(bind(this.run.apply())) match {
-      case Success(value) => value
-      case Failure(exception) => recover.apply(exception)
+    def redeemWith[B](recover: Throwable => IO[B], bind: A => IO[B]): IO[B] = Try(bind(run())) match {
+      case Success(bindFunction) => new IO(bindFunction.run)
+      case Failure(exception) => new IO(recover(exception).run)
     }
 
     /**
@@ -189,7 +194,7 @@ object EffectsHomework1 {
      * reasonable software.  You should ideally only call this function
      * *once*, at the very end of your program.
      */
-    def unsafeRunSync(): A = this.run.apply()
+    def unsafeRunSync(): A = run()
 
     /**
      * Evaluates the effect and produces the result in a `Future`.
@@ -202,7 +207,7 @@ object EffectsHomework1 {
      *
      * see IO.fromFuture
      */
-    def unsafeToFuture(): Future[A] = Promise.fromTry(Try(unsafeRunSync())).future
+    def unsafeToFuture(): Future[A] = Future(run())
   }
 
   object IO {
@@ -221,7 +226,7 @@ object EffectsHomework1 {
      * thrown by the side effect will be caught and sequenced into the
      * `IO`.
      */
-    def suspend[A](thunk: => IO[A]): IO[A] = thunk
+    def suspend[A](thunk: => IO[A]): IO[A] = new IO(() => thunk.run())
 
     /**
      * Suspends a synchronous side effect in `IO`.
@@ -241,7 +246,7 @@ object EffectsHomework1 {
      * (when evaluated) than `IO(42)`, due to avoiding the allocation of
      * extra thunks.
      */
-    def pure[A](a: A): IO[A] = IO(a)
+    def pure[A](a: A): IO[A] = new IO(() => a)
 
     /**
      * Lifts an `Either[Throwable, A]` into the `IO[A]` context, raising
