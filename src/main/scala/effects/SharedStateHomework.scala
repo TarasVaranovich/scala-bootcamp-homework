@@ -3,8 +3,9 @@ package effects
 import cats.Monad
 import cats.effect.concurrent.Ref
 import cats.effect.{Clock, Concurrent, ExitCode, IO, IOApp, Timer}
+import cats.implicits._
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.{DurationInt, FiniteDuration, MILLISECONDS}
 
 /*
  * Please implement a Cache which allows concurrent access.
@@ -24,20 +25,40 @@ object SharedStateHomework extends IOApp {
     def get(key: K): F[Option[V]]
 
     def put(key: K, value: V): F[Unit]
+
+    def clear: F[Unit]
   }
 
   class RefCache[F[_] : Clock : Monad, K, V](state: Ref[F, Map[K, (Long, V)]], expiresIn: FiniteDuration)
     extends Cache[F, K, V] {
 
-    def get(key: K): F[Option[V]] = ???
+    def get(key: K): F[Option[V]] = state.get.map(_.get(key).map { case (_, value) => value })
 
-    def put(key: K, value: V): F[Unit] = ???
+    def put(key: K, value: V): F[Unit] = Clock[F].realTime(MILLISECONDS)
+      .flatMap(time => state.update(_.++(Map(key -> ((time + expiresIn.toMillis), value)))))
+
+    def clear: F[Unit] = Clock[F].realTime(MILLISECONDS)
+      .flatMap(time => state.update(_.filter { case (_, (expired, _)) => expired >= time }))
   }
 
   object Cache {
-    def of[F[_] : Clock, K, V](expiresIn: FiniteDuration, checkOnExpirationsEvery: FiniteDuration)(
-      implicit T: Timer[F], C: Concurrent[F]): F[Cache[F, K, V]] = ???
 
+    def of[F[_] : Clock, K, V](expiresIn: FiniteDuration, checkOnExpirationsEvery: FiniteDuration)
+                              (implicit T: Timer[F], C: Concurrent[F]): F[Cache[F, K, V]] = {
+      val cacheMap: Map[K, (Long, V)] = Map()
+      val cacheReference: Ref[F, Map[K, (Long, V)]] = Ref.unsafe(cacheMap)
+      val cache: Cache[F, K, V] = new RefCache[F, K, V](cacheReference, expiresIn)
+
+      val clearCache: F[Unit] = for {
+        _ <- T.sleep(checkOnExpirationsEvery)
+        _ <- cache.clear
+      } yield ()
+
+      for {
+        _ <- C.start(clearCache.foreverM.void)
+        cacheF <- C.delay(cache)
+      } yield cacheF
+    }
   }
 
   override def run(args: List[String]): IO[ExitCode] = {
