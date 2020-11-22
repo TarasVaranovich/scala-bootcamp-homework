@@ -6,6 +6,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
 /**
  * Application:
@@ -22,20 +23,24 @@ import scala.language.postfixOps
 object AsyncHomework extends App {
   private implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
-  var addresses: List[String] = if (args.length == 0) List("http://google.com") else args.toList
+  var addresses: List[String] = if (args.length == 0) List("http://google.com", "https://www.scala-lang.org") else
+    args.toList
 
   addresses.foreach(address => {
-    for {
+    (for {
       page <- fetchPageBody(address)
       urls <- findLinkUrls(page)
-      namesOpt <- Future.traverse(urls)(linkUrl => fetchServerName(linkUrl))
-      names <- Future {
-        s"-$address:" :: namesOpt
-          .flatten
-          .distinct
-          .sortWith((previous, next) => previous.toLowerCase.compareTo(next.toLowerCase) < 0)
-      }
-    } yield names.foreach(name => println(name))
+      namesOpt <- Future.traverse(urls)(fetchServerName)
+      names <- Future.successful(namesOpt
+        .flatten
+        .distinct
+        .sortWith((previous, next) => previous.toLowerCase.compareTo(next.toLowerCase) < 0))
+    } yield names) onComplete {
+      case Success(addresses) => println(s"$address server names:${
+        addresses.fold("")((prev, b) => s"$prev, $b").replaceFirst(",", "")
+      }")
+      case Failure(exception) => println(exception.getMessage)
+    }
   })
 
   private def fetchPageBody(url: String): Future[String] = {
@@ -56,7 +61,6 @@ object AsyncHomework extends App {
       Option(new URL(url).openConnection().getHeaderField("Server"))
     }
   }
-
 
   private def findLinkUrls(html: String): Future[List[String]] = Future {
     val linkPattern = """href="(http[^"]+)"""".r
