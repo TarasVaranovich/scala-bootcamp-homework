@@ -14,7 +14,9 @@ scalacOptions ++= Seq(
 val catsVersion = "2.2.0"
 val circeVersion = "0.13.0"
 val http4sVersion = "0.21.7"
+val jakartaMailVersion = "2.0.0"
 val log4CatsVersion = "1.1.1"
+val redisClientVersion = "3.30"
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.3.0-SNAP2" % Test,
   "org.typelevel" %% "cats-core" % catsVersion,
@@ -29,6 +31,10 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-optics" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,
   "io.chrisdavenport" %% "log4cats-slf4j" % log4CatsVersion,
+  "jakarta.mail" % "jakarta.mail-api" % jakartaMailVersion,
+  "jakarta.activation" % "jakarta.activation-api" % jakartaMailVersion,
+  "javax.mail" % "mail" % "1.4.7",
+  "net.debasishg" %% "redisclient" % redisClientVersion,
   "org.slf4j" % "slf4j-nop" % "1.7.30",
   "org.scalaj" %% "scalaj-http" % "2.4.2" % Test,
   "com.codecommit" %% "cats-effect-testing-scalatest" % "0.4.1" % Test
