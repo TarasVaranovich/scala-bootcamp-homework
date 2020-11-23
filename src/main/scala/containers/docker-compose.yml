@@ -1,15 +1,17 @@
 ---
 version: "3.8"
 services:
-# Create docker-compose file, which could be used to run integration tests for this project
-
-# looks like just add redis
-
-# Service in container not only Redis
-# How to build project and run it in container
-# command line command bind to docker command
-# Move port to properties
-# Can be added logging outside of docker or just output couple of lines - automoted testing
-# Check if compose file version is compatible with docker version
-# exclude files by docker ignore
-# port as a parameter
+  redis:
+    container_name: redis
+    image: redis:alpine
+    command: redis-server
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_REPLICATION_MODE=master
+  mail:
+    container_name: main
+    image: tophfr/mailcatcher:latest
+    ports:
+      - "80:80"
+      - "127.0.0.1:25:25"

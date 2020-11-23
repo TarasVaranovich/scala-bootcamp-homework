@@ -13,10 +13,11 @@ class MailCounterSpec extends AnyFlatSpec with ShouldVerb {
   "Counter" should "persist value" in {
     val r = new RedisClient("localhost", 6379)
     val cntId = java.util.UUID.randomUUID().toString
-    //    val cntId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000000").toString
     val c = new MailCounter(r, cntId)
     r.set(cntId, 0)
     c.addOne
-    r.get[Long](cntId) should be(Some(1L))
+    val result: Option[Long] = r.get[Long](cntId)
+    result should be (Some)
+    result.leftSideValue should be (1L)
   }
 }
