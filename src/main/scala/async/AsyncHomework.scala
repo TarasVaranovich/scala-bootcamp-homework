@@ -36,9 +36,7 @@ object AsyncHomework extends App {
         .distinct
         .sortWith((previous, next) => previous.toLowerCase.compareTo(next.toLowerCase) < 0))
     } yield names) onComplete {
-      case Success(addresses) => println(s"$address server names:${
-        addresses.fold("")((prev, b) => s"$prev, $b").replaceFirst(",", "")
-      }")
+      case Success(addresses) => println(s"$address server names: ${addresses.mkString(" ,")}")
       case Failure(exception) => println(exception.getMessage)
     }
   })
