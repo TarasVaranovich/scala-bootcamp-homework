@@ -2,7 +2,6 @@ package http
 
 import cats.effect.{ExitCode, IO, IOApp}
 import effects.SharedStateHomework.Cache
-import io.circe
 import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
@@ -22,7 +21,7 @@ object GuessServer extends IOApp {
   private val CacheAbsent: String = s"Cache not initialized."
   private val GameAbsent: String = s"Game info not found."
   private val cacheManager: CacheManager = new CacheManager()
-
+  //TODO: cache not var and non-optional and pass as parameter to constructor
   class CacheManager {
     private var cacheOpt: Option[Cache[IO, String, GameInfo]] = None
     def apply(cache: Cache[IO, String, GameInfo]): IO[Unit] = {
@@ -85,28 +84,29 @@ object GuessServer extends IOApp {
     import org.http4s.Status
 
     HttpRoutes.of[IO] {
-
       case request@POST -> Root / "play" => {
-        val body: String = request.as[String].unsafeRunSync()
-        val gameRequestDecoded: Either[circe.Error, InitGameRequest] = decode[InitGameRequest](body)
-
-        gameRequestDecoded match {
-          case Left(_) => {
-            IO(Response(Status.BadRequest).withEntity("Cannot parse request body."))
-          }
-          case Right(initGameRequest) => {
-            val token: String = java.util.UUID.randomUUID.toString
-            GameInfo.fromRequest(initGameRequest) match {
-              case Some(gameInfo) => for {
-                result <- cacheManager.put(token, gameInfo).attempt
-              } yield result match {
-                case Right(_) => Response(Status.Created).withEntity(InitGameResponse(token, "Game started.").asJson)
-                case Left(ex) => Response(Status.InternalServerError).withEntity(ex.getMessage)
+        request
+          .as[String]
+          .flatMap {
+            body =>
+              decode[InitGameRequest](body) match {
+                case Left(_) => {
+                  IO(Response(Status.BadRequest).withEntity("Cannot parse request body."))
+                }
+                case Right(initGameRequest) => {
+                  val token: String = java.util.UUID.randomUUID.toString
+                  GameInfo.fromRequest(initGameRequest) match {
+                    case Some(gameInfo) => for {
+                      result <- cacheManager.put(token, gameInfo).attempt
+                    } yield result match {
+                      case Right(_) => Response(Status.Created).withEntity(InitGameResponse(token, "Game started.").asJson)
+                      case Left(ex) => Response(Status.InternalServerError).withEntity(ex.getMessage)
+                    }
+                    case None => IO(Response(Status.BadRequest).withEntity("Invalid game data."))
+                  }
+                }
               }
-              case None => IO(Response(Status.BadRequest).withEntity("Invalid game data."))
-            }
           }
-        }
       }
 
       case request

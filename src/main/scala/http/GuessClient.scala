@@ -32,15 +32,13 @@ object GuessClient extends IOApp {
     .withPathInfo(s"/guess/$number")
     .withHeaders(Header.apply("player-id", token))
 
-  def play(token: String, client: Client[IO]): IO[Unit] = {
-    val number: Int = Random.between(Min, Max)
-    val gameResult = (for {
+  def play(token: String, client: Client[IO]): IO[Unit] =
+    for {
+      number <- IO(Random.between(Min, Max))
       guess <- client.expect[ResultResponse](guess(token, number))
       result <- IO.apply(guess.gameResult)
-    } yield result).unsafeRunSync()
-    if (gameResult != GameResult.Win && gameResult != GameResult.Lose) play(token, client) else println(gameResult)
-    IO.unit
-  }
+      _ <- if (result != GameResult.Win && result != GameResult.Lose) play(token, client) else IO(println(result))
+    } yield ()
 
   override def run(args: List[String]): IO[ExitCode] =
     BlazeClientBuilder[IO](ExecutionContext.global).resource.use { client =>
