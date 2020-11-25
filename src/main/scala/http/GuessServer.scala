@@ -18,43 +18,7 @@ import scala.util.Random
 
 
 object GuessServer extends IOApp {
-  private val CacheAbsent: String = s"Cache not initialized."
-  private val GameAbsent: String = s"Game info not found."
-  private val cacheManager: CacheManager = new CacheManager()
-  //TODO: cache not var and non-optional and pass as parameter to constructor
-  class CacheManager {
-    private var cacheOpt: Option[Cache[IO, String, GameInfo]] = None
-    def apply(cache: Cache[IO, String, GameInfo]): IO[Unit] = {
-      this.cacheOpt = Some(cache)
-      IO.unit
-    }
-
-    def get(key: String): IO[GameInfo] = cacheOpt match {
-      case Some(cache) =>
-        for {
-          info <- cache.get(key)
-          gameInfo <- IO.fromOption(info)(throw new Exception(GameAbsent))
-        } yield gameInfo
-      case None => IO.raiseError(throw new Exception(CacheAbsent))
-    }
-
-    def put(key: String, info: GameInfo): IO[Unit] = cacheOpt match {
-      case Some(cache) => cache.put(key, info)
-      case None => IO.raiseError(throw new Exception(CacheAbsent))
-    }
-
-    def updateAttempts(key: String): IO[Unit] = cacheOpt match {
-      case Some(cache) => for {
-        info <- cache.get(key)
-        freshInfo <- IO
-          .fromOption(info
-            .flatMap(oldInfo =>
-              Some(GameInfo(oldInfo.number, oldInfo.attempts - 1))))(throw new Exception(GameAbsent))
-        _ <- cache.put(key, freshInfo)
-      } yield ()
-      case None => IO.raiseError(throw new Exception(CacheAbsent))
-    }
-  }
+  private val cacheIO: IO[Cache[IO, String, GameInfo]] = Cache.of[IO, String, GameInfo](15.minutes, 5.minutes)
 
   final case class InitGameRequest(min: Int, max: Int, attempts: Int)
   final case class InitGameResponse(token: String, message: String)
@@ -97,11 +61,9 @@ object GuessServer extends IOApp {
                   val token: String = java.util.UUID.randomUUID.toString
                   GameInfo.fromRequest(initGameRequest) match {
                     case Some(gameInfo) => for {
-                      result <- cacheManager.put(token, gameInfo).attempt
-                    } yield result match {
-                      case Right(_) => Response(Status.Created).withEntity(InitGameResponse(token, "Game started.").asJson)
-                      case Left(ex) => Response(Status.InternalServerError).withEntity(ex.getMessage)
-                    }
+                      cache <- cacheIO
+                      _ <- cache.put(token, gameInfo)
+                    } yield Response(Status.Created).withEntity(InitGameResponse(token, "Game started.").asJson)
                     case None => IO(Response(Status.BadRequest).withEntity("Invalid game data."))
                   }
                 }
@@ -116,12 +78,17 @@ object GuessServer extends IOApp {
           case Some(header) => {
             val token = header.value
             for {
-              info <- cacheManager.get(token).attempt
-              update <- cacheManager.updateAttempts(token).attempt
-              freshInfo <- cacheManager.get(token).attempt
-              attempts <- IO.apply(freshInfo.map(_.attempts))
-              gameResult <- IO.apply(info.map(info => GameResult.from(info, candidate.toInt)))
-            } yield (attempts, gameResult, update) match {
+              cache <- cacheIO
+              infoOpt <- cache.get(token)
+              infoEither <- IO.fromOption(infoOpt)(throw new Exception("Game absent.")).attempt
+              info <- IO.fromEither(infoEither)
+              _ <- cache.put(token, GameInfo(info.number, info.attempts - 1))
+              freshInfo <- cache.get(token)
+              attemptsOpt <- IO.apply(freshInfo.map(_.attempts))
+              attemptsEither <- IO.fromOption(attemptsOpt)(throw new Exception("Cannot update attempts.")).attempt
+              gameResultOpt <- IO.apply(infoOpt.map(info => GameResult.from(info, candidate.toInt)))
+              gameResultEither <- IO.fromOption(gameResultOpt)(throw new Exception("Cannot create game result.")).attempt
+            } yield (attemptsEither, gameResultEither, infoEither) match {
               case (Right(attempts), Right(gameResult), Right(_)) =>
                 Response(Status.Ok).withEntity(ResultResponse(candidate.toInt, gameResult, attempts).asJson)
               case (Left(ex), _, _) => Response(Status.NotFound).withEntity(ex.getMessage)
@@ -139,13 +106,12 @@ object GuessServer extends IOApp {
     gameRoutes
   }.orNotFound
 
-  override def run(args: List[String]): IO[ExitCode] = for {
-    _ <- Cache.of[IO, String, GameInfo](15.minutes, 5.minutes).flatMap(cache => cacheManager.apply(cache))
-    _ <- BlazeServerBuilder[IO](ExecutionContext.global)
+  override def run(args: List[String]): IO[ExitCode] =
+    BlazeServerBuilder[IO](ExecutionContext.global)
       .bindHttp(port = 9001, host = "localhost")
       .withHttpApp(httpApp)
       .serve
       .compile
       .drain
-  } yield ExitCode.Success
+      .as(ExitCode.Success)
 }
