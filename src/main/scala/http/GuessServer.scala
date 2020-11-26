@@ -18,8 +18,6 @@ import scala.util.Random
 
 
 object GuessServer extends IOApp {
-  private val cacheIO: IO[Cache[IO, String, GameInfo]] = Cache.of[IO, String, GameInfo](15.minutes, 5.minutes)
-
   final case class InitGameRequest(min: Int, max: Int, attempts: Int)
   final case class InitGameResponse(token: String, message: String)
   final case class ResultResponse(value: Int, gameResult: GameResult, attempts: Int)
@@ -44,7 +42,7 @@ object GuessServer extends IOApp {
       else if (gameInfo.number > candidate) LessThan else if (gameInfo.number < candidate) GreaterThan else Win
   }
 
-  private val gameRoutes = {
+  def gameRoutes(cache: Cache[IO, String, GameInfo]) = {
     import org.http4s.Status
 
     HttpRoutes.of[IO] {
@@ -61,7 +59,6 @@ object GuessServer extends IOApp {
                   val token: String = java.util.UUID.randomUUID.toString
                   GameInfo.fromRequest(initGameRequest) match {
                     case Some(gameInfo) => for {
-                      cache <- cacheIO
                       _ <- cache.put(token, gameInfo)
                     } yield Response(Status.Created).withEntity(InitGameResponse(token, "Game started.").asJson)
                     case None => IO(Response(Status.BadRequest).withEntity("Invalid game data."))
@@ -78,7 +75,6 @@ object GuessServer extends IOApp {
           case Some(header) => {
             val token = header.value
             for {
-              cache <- cacheIO
               infoOpt <- cache.get(token)
               infoEither <- IO.fromOption(infoOpt)(throw new Exception("Game absent.")).attempt
               info <- IO.fromEither(infoEither)
@@ -102,16 +98,17 @@ object GuessServer extends IOApp {
     }
   }
 
-  private[http] val httpApp = {
-    gameRoutes
+  def httpApp(cache: Cache[IO, String, GameInfo]) = {
+    gameRoutes(cache)
   }.orNotFound
 
-  override def run(args: List[String]): IO[ExitCode] =
-    BlazeServerBuilder[IO](ExecutionContext.global)
+  override def run(args: List[String]): IO[ExitCode] = for {
+    cache <- Cache.of[IO, String, GameInfo](15.minutes, 5.minutes)
+    _ <- BlazeServerBuilder[IO](ExecutionContext.global)
       .bindHttp(port = 9001, host = "localhost")
-      .withHttpApp(httpApp)
+      .withHttpApp(httpApp(cache))
       .serve
       .compile
       .drain
-      .as(ExitCode.Success)
+  } yield ExitCode.Success
 }
