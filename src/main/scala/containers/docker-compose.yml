@@ -13,5 +13,4 @@ services:
     container_name: main
     image: tophfr/mailcatcher:latest
     ports:
-      - "80:80"
       - "127.0.0.1:25:25"
