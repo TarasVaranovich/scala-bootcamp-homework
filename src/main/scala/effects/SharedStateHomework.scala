@@ -45,19 +45,19 @@ object SharedStateHomework extends IOApp {
 
     def of[F[_] : Clock, K, V](expiresIn: FiniteDuration, checkOnExpirationsEvery: FiniteDuration)
                               (implicit T: Timer[F], C: Concurrent[F]): F[Cache[F, K, V]] = {
-      val cacheMap: Map[K, (Long, V)] = Map()
-      val cacheReference: Ref[F, Map[K, (Long, V)]] = Ref.unsafe(cacheMap)
-      val cache: Cache[F, K, V] = new RefCache[F, K, V](cacheReference, expiresIn)
 
-      val clearCache: F[Unit] = for {
+      def clearCache(cache: Cache[F, K, V]): F[Unit] = for {
         _ <- T.sleep(checkOnExpirationsEvery)
         _ <- cache.clear
       } yield ()
 
       for {
-        _ <- C.start(clearCache.foreverM.void)
-        cacheF <- C.delay(cache)
-      } yield cacheF
+        map <- C.delay(Map[K, (Long, V)]())
+        reference <- Ref.of(map)
+        refCache <- C.delay(new RefCache[F, K, V](reference, expiresIn))
+        _ <- C.start(clearCache(refCache).foreverM.void)
+        cache <- C.delay(refCache)
+      } yield cache
     }
   }
 
