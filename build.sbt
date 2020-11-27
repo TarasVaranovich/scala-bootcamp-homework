@@ -11,6 +11,7 @@ scalacOptions ++= Seq(
   "-Ymacro-annotations"
 )
 
+val akkaVersion = "2.6.10"
 val catsVersion = "2.2.0"
 val circeVersion = "0.13.0"
 val http4sVersion = "0.21.7"
@@ -25,6 +26,8 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-blaze-server" % http4sVersion,
   "org.http4s" %% "http4s-blaze-client" % http4sVersion,
   "org.http4s" %% "http4s-circe" % http4sVersion,
+  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
+  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-generic-extras" % circeVersion,
